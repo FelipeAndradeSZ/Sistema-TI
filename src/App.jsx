@@ -480,15 +480,7 @@ const TelaLogin = ({ onLogin }) => {
           </button>
         </form>
 
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg text-xs text-gray-700">
-          <p className="text-center mb-2">Credenciais de teste:</p>
-          <p>
-            <strong>Admin:</strong> admin@faculdade.com / admin123
-          </p>
-          <p>
-            <strong>Técnico:</strong> tec1@faculdade.com / tec123
-          </p>
-        </div>
+        
       </div>
     </div>
   );
