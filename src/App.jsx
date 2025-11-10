@@ -758,156 +758,357 @@ const Dashboard = ({
   preventivas,
   historicoEstoque,
 }) => {
-  const chamadosPendentes = chamados.filter(
-    (c) => c.status === "pendente"
-  ).length;
-  const chamadosAndamento = chamados.filter(
-    (c) => c.status === "em_andamento"
-  ).length;
-  const chamadosConcluidos = chamados.filter(
-    (c) => c.status === "concluido"
-  ).length;
-  const estoqueAlerta = estoque.filter(
-    (e) => e.quantidade <= e.minimo
-  ).length;
-  const preventivasPendentes = preventivas.filter(
-    (p) => p.status === "pendente"
-  ).length;
+  // === MÉTRICAS PRINCIPAIS ===
+  const chamadosPendentes = chamados.filter((c) => c.status === "pendente").length;
+  const chamadosAndamento = chamados.filter((c) => c.status === "em_andamento").length;
+  const chamadosConcluidos = chamados.filter((c) => c.status === "concluido").length;
+  const totalChamados = chamados.length;
 
-  const ultimosChamados = [...chamados].slice(-5).reverse();
-  const ultimosMovimentos = [...historicoEstoque].slice(-5).reverse();
+  const estoqueAlerta = estoque.filter((e) => e.quantidade <= e.minimo).length;
+  const preventivasPendentes = preventivas.filter((p) => p.status === "pendente").length;
 
+  const taxaConclusao = totalChamados
+    ? ((chamadosConcluidos / totalChamados) * 100).toFixed(1)
+    : "0.0";
+
+  const chamadosAbertos = chamadosPendentes + chamadosAndamento;
+
+  // === CHAMADOS POR DIA (ÚLTIMOS 7 DIAS) ===
+  const hoje = new Date();
+  const dias = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(hoje);
+    d.setDate(d.getDate() - i);
+    const iso = d.toISOString().split("T")[0];
+
+    const qtd = chamados.filter((c) => c.data === iso).length;
+
+    const dia = String(d.getDate()).padStart(2, "0");
+    const mes = String(d.getMonth() + 1).padStart(2, "0");
+
+    dias.push({
+      label: `${dia}/${mes}`,
+      valor: qtd,
+    });
+  }
+
+  const maxChamadosDia =
+    dias.reduce((max, d) => (d.valor > max ? d.valor : max), 0) || 1;
+
+  // === STATUS (PARA BARRA EMPILHADA) ===
+  const pctPendente = totalChamados
+    ? (chamadosPendentes / totalChamados) * 100
+    : 0;
+  const pctAndamento = totalChamados
+    ? (chamadosAndamento / totalChamados) * 100
+    : 0;
+  const pctConcluido = totalChamados
+    ? (chamadosConcluidos / totalChamados) * 100
+    : 0;
+
+  // === CHAMADOS POR TIPO ===
   const problemasPorTipo = {};
   chamados.forEach((c) => {
+    if (!c.tipo) return;
     problemasPorTipo[c.tipo] = (problemasPorTipo[c.tipo] || 0) + 1;
   });
 
-  const totalChamados = chamados.length || 1;
-  const taxaConclusao = (
-    (chamadosConcluidos / totalChamados) *
-    100
-  ).toFixed(1);
+  const totalPorTipo = Object.values(problemasPorTipo).reduce(
+    (a, b) => a + b,
+    0
+  );
+
+  // === TOP ITENS ESTOQUE (SAÍDAS) ===
+  const saidasPorItem = {};
+  historicoEstoque
+    .filter((h) => h.tipo === "saida")
+    .forEach((h) => {
+      if (!h.item) return;
+      saidasPorItem[h.item] = (saidasPorItem[h.item] || 0) + h.quantidade;
+    });
+
+  const topItens = Object.entries(saidasPorItem)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  // === ÚLTIMOS REGISTROS ===
+  const ultimosChamados = [...chamados].slice(-5).reverse();
+  const ultimosMovimentos = [...historicoEstoque].slice(-5).reverse();
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
+    <div className="space-y-6">
+      {/* Título */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <h2 className="text-2xl font-bold">
+            Visão Geral - TI Estácio RP
+          </h2>
+          <p className="text-xs text-gray-500">
+            Painel de indicadores operacionais e de estoque em tempo real.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-[9px] text-gray-500">
+          <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full">
+            <TrendingUp className="inline w-3 h-3 mr-1" />
+            Estilo Power BI
+          </span>
+          <span className="px-2 py-1 bg-slate-50 text-slate-700 rounded-full">
+            Atualizado com base nos dados do sistema
+          </span>
+        </div>
+      </div>
 
-      {/* Cards principais */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      {/* Linha 1 - Cards principais */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <CardEstatistica
-          titulo="Chamados Pendentes"
-          valor={chamadosPendentes}
+          titulo="Chamados em Aberto"
+          valor={chamadosAbertos}
+          subtitulo={`${chamadosPendentes} pendentes • ${chamadosAndamento} em andamento`}
           icone={AlertCircle}
-          cor="red"
+          gradiente="from-red-500/90 to-orange-500/90"
         />
         <CardEstatistica
-          titulo="Em Andamento"
-          valor={chamadosAndamento}
-          icone={Wrench}
-          cor="yellow"
-        />
-        <CardEstatistica
-          titulo="Estoque em Alerta"
-          valor={estoqueAlerta}
-          icone={Package}
-          cor="orange"
+          titulo="Taxa de Conclusão"
+          valor={`${taxaConclusao}%`}
+          subtitulo={`${chamadosConcluidos} de ${totalChamados || 0} chamados`}
+          icone={CheckSquare}
+          gradiente="from-emerald-500/90 to-teal-500/90"
         />
         <CardEstatistica
           titulo="Preventivas Pendentes"
           valor={preventivasPendentes}
-          icone={CheckSquare}
-          cor="blue"
+          subtitulo="Acompanhe o calendário preventivo"
+          icone={CalendarIcon}
+          gradiente="from-blue-500/90 to-indigo-500/90"
+        />
+        <CardEstatistica
+          titulo="Itens em Alerta"
+          valor={estoqueAlerta}
+          subtitulo="Estoque abaixo do mínimo"
+          icone={Package}
+          gradiente="from-violet-500/90 to-fuchsia-500/90"
         />
       </div>
 
-      {/* Gráficos simples */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
-          <h3 className="font-semibold mb-2 text-sm">Taxa de Conclusão</h3>
-          <div className="w-full bg-gray-100 dark:bg-slate-800 rounded-full h-4 overflow-hidden">
-            <div
-              className="h-4 bg-green-500 rounded-full transition-all"
-              style={{ width: `${taxaConclusao}%` }}
-            />
+      {/* Linha 2 - Gráfico de tendência + status */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Chamados últimos 7 dias */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 col-span-2">
+          <div className="flex justify-between items-baseline mb-2">
+            <h3 className="text-sm font-semibold">
+              Volume de Chamados (últimos 7 dias)
+            </h3>
+            <span className="text-[9px] text-gray-500">
+              Máx/dia: {maxChamadosDia === 1 ? "1 chamado" : `${maxChamadosDia} chamados`}
+            </span>
           </div>
-          <p className="mt-2 text-xs text-gray-600 dark:text-slate-400">
-            {taxaConclusao}% dos chamados concluídos.
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 lg:col-span-2">
-          <h3 className="font-semibold mb-2 text-sm">Chamados por Tipo</h3>
-
-          {Object.keys(problemasPorTipo).length === 0 && (
-            <p className="text-xs text-gray-500">
-              Nenhum chamado cadastrado.
-            </p>
-          )}
-
-          <div className="space-y-2">
-            {Object.entries(problemasPorTipo).map(([tipo, qtd]) => {
-              const pct = ((qtd / totalChamados) * 100).toFixed(1);
-
+          <div className="flex items-end gap-2 h-28">
+            {dias.map((d, i) => {
+              const altura = (d.valor / maxChamadosDia) * 100;
               return (
                 <div
-                  key={tipo}
-                  className="flex items-center gap-2 text-xs"
+                  key={i}
+                  className="flex-1 flex flex-col items-center gap-1"
                 >
-                  <span className="w-20 capitalize text-gray-700 dark:text-slate-300">
-                    {tipo}
+                  <div
+                    className={`
+                      w-full rounded-t-lg
+                      bg-gradient-to-t from-blue-500/90 to-sky-400/90
+                      transition-all
+                    `}
+                    style={{ height: `${altura || 4}%` }}
+                  />
+                  <span className="text-[8px] text-gray-500">
+                    {d.label}
                   </span>
-                  <div className="flex-1 bg-gray-100 dark:bg-slate-800 h-3 rounded-full overflow-hidden">
-                    <div
-                      className="h-3 bg-blue-500 rounded-full"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <span className="w-12 text-right text-gray-600 dark:text-slate-400">
-                    {qtd}
+                  <span className="text-[8px] text-gray-700 dark:text-slate-300">
+                    {d.valor}
                   </span>
                 </div>
               );
             })}
           </div>
         </div>
+
+        {/* Status - barra empilhada */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <h3 className="text-sm font-semibold mb-2">
+            Status dos Chamados
+          </h3>
+          {totalChamados === 0 ? (
+            <p className="text-[10px] text-gray-500">
+              Nenhum chamado registrado ainda.
+            </p>
+          ) : (
+            <>
+              <div className="w-full h-5 rounded-full overflow-hidden bg-gray-100 dark:bg-slate-800 flex mb-2">
+                <div
+                  className="bg-red-500 h-full"
+                  style={{ width: `${pctPendente}%` }}
+                />
+                <div
+                  className="bg-yellow-400 h-full"
+                  style={{ width: `${pctAndamento}%` }}
+                />
+                <div
+                  className="bg-emerald-500 h-full"
+                  style={{ width: `${pctConcluido}%` }}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-1 text-[9px]">
+                <div className="flex justify-between">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    Pendentes
+                  </span>
+                  <span>
+                    {chamadosPendentes} ({pctPendente.toFixed(1)}%)
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-yellow-400" />
+                    Em andamento
+                  </span>
+                  <span>
+                    {chamadosAndamento} ({pctAndamento.toFixed(1)}%)
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Concluídos
+                  </span>
+                  <span>
+                    {chamadosConcluidos} ({pctConcluido.toFixed(1)}%)
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {/* Últimos Chamados / Movimentações */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Linha 3 - Chamados por tipo + Top Itens Estoque */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Chamados por tipo */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <h3 className="text-sm font-semibold mb-2">
+            Chamados por Tipo
+          </h3>
+          {Object.keys(problemasPorTipo).length === 0 ? (
+            <p className="text-[10px] text-gray-500">
+              Nenhum chamado classificado por tipo.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {Object.entries(problemasPorTipo).map(([tipo, qtd]) => {
+                const pct = totalPorTipo
+                  ? (qtd / totalPorTipo) * 100
+                  : 0;
+                return (
+                  <div
+                    key={tipo}
+                    className="flex items-center gap-2 text-[9px]"
+                  >
+                    <span className="w-20 capitalize text-gray-600">
+                      {tipo}
+                    </span>
+                    <div className="flex-1 h-2 rounded-full bg-gray-100 dark:bg-slate-800 overflow-hidden">
+                      <div
+                        className="h-2 bg-blue-500 rounded-full"
+                        style={{ width: `${pct || 5}%` }}
+                      />
+                    </div>
+                    <span className="w-10 text-right text-gray-700">
+                      {qtd}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Top itens usados */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <h3 className="text-sm font-semibold mb-2">
+            Top Itens de Estoque Utilizados
+          </h3>
+          {topItens.length === 0 ? (
+            <p className="text-[10px] text-gray-500">
+              Ainda não há utilização registrada de itens.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              {topItens.map(([nome, qtd], i) => {
+                const pct = (qtd / topItens[0][1]) * 100;
+                return (
+                  <div
+                    key={nome}
+                    className="flex items-center gap-2 text-[9px]"
+                  >
+                    <span className="w-4 text-gray-400">
+                      #{i + 1}
+                    </span>
+                    <span className="flex-1 truncate">
+                      {nome}
+                    </span>
+                    <div className="w-24 h-2 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-2 bg-purple-500 rounded-full"
+                        style={{ width: `${pct || 5}%` }}
+                      />
+                    </div>
+                    <span className="w-8 text-right text-gray-700">
+                      {qtd}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Linha 4 - Últimos Chamados / Movimentações */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Últimos Chamados */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-bold mb-4">Últimos Chamados</h3>
-          <div className="space-y-3">
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <h3 className="text-sm font-semibold mb-3">
+            Últimos Chamados
+          </h3>
+          <div className="space-y-2">
             {ultimosChamados.length === 0 && (
-              <p className="text-sm text-gray-500">
-                Nenhum chamado registrado ainda.
+              <p className="text-[10px] text-gray-500">
+                Nenhum chamado registrado.
               </p>
             )}
 
-            {ultimosChamados.map((chamado) => (
+            {ultimosChamados.map((c) => (
               <div
-                key={chamado.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800 rounded-lg"
+                key={c.id}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-slate-800 rounded-lg"
               >
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">
-                    {chamado.titulo}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate">
+                    {c.titulo}
                   </p>
-                  <p className="text-xs text-gray-500">
-                    {chamado.sala}
+                  <p className="text-[9px] text-gray-500 truncate">
+                    {c.sala} • {c.data}
                   </p>
                 </div>
-
                 <span
-                  className={`px-3 py-1 text-[10px] rounded-full ${
-                    chamado.status === "pendente"
+                  className={`px-2 py-0.5 text-[8px] rounded-full whitespace-nowrap ${
+                    c.status === "pendente"
                       ? "bg-red-100 text-red-700"
-                      : chamado.status === "em_andamento"
+                      : c.status === "em_andamento"
                       ? "bg-yellow-100 text-yellow-700"
                       : "bg-green-100 text-green-700"
                   }`}
                 >
-                  {chamado.status.replace("_", " ")}
+                  {c.status.replace("_", " ")}
                 </span>
               </div>
             ))}
@@ -915,38 +1116,44 @@ const Dashboard = ({
         </div>
 
         {/* Movimentação de Estoque */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-bold mb-4">
-            Movimentação de Estoque
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
+          <h3 className="text-sm font-semibold mb-3">
+            Últimas Movimentações de Estoque
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {ultimosMovimentos.length === 0 && (
-              <p className="text-sm text-gray-500">
+              <p className="text-[10px] text-gray-500">
                 Nenhuma movimentação registrada.
               </p>
             )}
 
-            {ultimosMovimentos.map((mov) => (
+            {ultimosMovimentos.map((m) => (
               <div
-                key={mov.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-800 rounded-lg"
+                key={m.id}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-gray-50 dark:bg-slate-800 rounded-lg"
               >
-                <div className="flex-1">
-                  <p className="font-semibold text-sm">{mov.item}</p>
-                  <p className="text-xs text-gray-500">
-                    {mov.motivo}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate">
+                    {m.item}
+                  </p>
+                  <p className="text-[9px] text-gray-500 truncate">
+                    {m.motivo}
                   </p>
                 </div>
-
-                <span
-                  className={`px-3 py-1 text-[10px] rounded-full ${
-                    mov.tipo === "entrada"
-                      ? "bg-green-100 text-green-700"
-                      : "bg-red-100 text-red-700"
-                  }`}
-                >
-                  {mov.tipo === "entrada" ? "+" : "-"} {mov.quantidade}
-                </span>
+                <div className="flex flex-col items-end text-[8px]">
+                  <span className="text-gray-500">
+                    {m.data}
+                  </span>
+                  <span
+                    className={`mt-0.5 px-2 py-0.5 rounded-full ${
+                      m.tipo === "entrada"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-700"
+                    }`}
+                  >
+                    {m.tipo === "entrada" ? "+" : "-"} {m.quantidade}
+                  </span>
+                </div>
               </div>
             ))}
           </div>
@@ -956,29 +1163,45 @@ const Dashboard = ({
   );
 };
 
-const CardEstatistica = ({ titulo, valor, icone: Icone, cor }) => {
-  const cores = {
-    red: "bg-red-100 text-red-600",
-    yellow: "bg-yellow-100 text-yellow-600",
-    orange: "bg-orange-100 text-orange-600",
-    blue: "bg-blue-100 text-blue-600",
-    green: "bg-green-100 text-green-600",
-  };
 
+const CardEstatistica = ({
+  titulo,
+  valor,
+  subtitulo,
+  icone: Icone,
+  gradiente,
+}) => {
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
-      <div className="flex items-center justify-between mb-2">
-        <div className={`p-2 rounded-lg ${cores[cor]}`}>
-          <Icone className="w-5 h-5" />
+    <div className="relative overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-slate-100/60 dark:border-slate-800">
+      <div
+        className={`
+          absolute inset-0 opacity-80 pointer-events-none
+          bg-gradient-to-r ${gradiente}
+          mix-blend-multiply
+        `}
+      />
+      <div className="relative p-4 flex flex-col gap-1">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] font-medium text-slate-50 drop-shadow">
+            {titulo}
+          </p>
+          <div className="p-1.5 rounded-xl bg-white/90 text-slate-800 shadow-sm">
+            <Icone className="w-4 h-4" />
+          </div>
         </div>
+        <p className="text-2xl font-bold text-white drop-shadow-sm leading-tight">
+          {valor}
+        </p>
+        {subtitulo && (
+          <p className="text-[9px] text-slate-100/90">
+            {subtitulo}
+          </p>
+        )}
       </div>
-      <p className="text-2xl font-bold">{valor}</p>
-      <p className="text-xs text-gray-600 dark:text-slate-400 mt-1">
-        {titulo}
-      </p>
     </div>
   );
 };
+
 
 // ==== Estoque ====
 
