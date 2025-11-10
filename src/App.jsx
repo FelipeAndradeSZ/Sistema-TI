@@ -41,6 +41,10 @@ import {
 import {
   listarEstoque,
   listarHistoricoEstoque,
+  criarItemEstoque,
+  atualizarItemEstoque,
+  deletarItemEstoque,
+  registrarMovimentacaoEstoque,
 } from "./services/estoque";
 
 import {
@@ -346,11 +350,14 @@ const App = () => {
             )}
 
             {paginaAtual === "chamados" && (
-              <Chamados
-                chamados={chamados}
-                setChamados={setChamados}
-                usuario={usuario}
-              />
+            <Chamados
+            chamados={chamados}
+            setChamados={setChamados}
+            usuario={usuario}
+            estoque={estoque}
+            setEstoque={setEstoque}
+            setHistoricoEstoque={setHistoricoEstoque}
+            />
             )}
 
             {paginaAtual === "preventivas" && (
@@ -975,12 +982,7 @@ const CardEstatistica = ({ titulo, valor, icone: Icone, cor }) => {
 
 // ==== Estoque ====
 
-import {
-  criarItemEstoque,
-  atualizarItemEstoque,
-  deletarItemEstoque,
-  registrarMovimentacaoEstoque,
-} from "./services/estoque";
+
 
 
 const Estoque = ({
@@ -1482,12 +1484,20 @@ const Estoque = ({
 
 // ==== Chamados ====
 
-const Chamados = ({ chamados, setChamados, usuario }) => {
+const Chamados = ({
+  chamados,
+  setChamados,
+  usuario,
+  estoque,
+  setEstoque,
+  setHistoricoEstoque,
+}) => {
   const [modalAberto, setModalAberto] = useState(false);
   const [modalDetalhes, setModalDetalhes] = useState(false);
   const [chamadoSelecionado, setChamadoSelecionado] = useState(null);
   const [filtro, setFiltro] = useState("todos");
   const [busca, setBusca] = useState("");
+  const [itensUso, setItensUso] = useState([]);
   const [form, setForm] = useState({
     titulo: "",
     sala: "",
@@ -1789,14 +1799,15 @@ const Chamados = ({ chamados, setChamados, usuario }) => {
 
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setChamadoSelecionado(chamado);
-                  setModalDetalhes(true);
-                }}
-                className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+              onClick={() => {
+              setChamadoSelecionado(chamado);
+              setItensUso([]); // limpa itens selecionados ao abrir
+              setModalDetalhes(true);
+              }}
+              className="flex-1 flex items-center justify-center gap-1 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
               >
-                <Eye className="w-4 h-4" />
-                Detalhes
+              <Eye className="w-4 h-4" />
+              Detalhes
               </button>
 
               {chamado.tecnico === "Não atribuído" && (
@@ -1977,43 +1988,27 @@ const Chamados = ({ chamados, setChamados, usuario }) => {
         </Modal>
       )}
 
-      {modalDetalhes && chamadoSelecionado && (
+            {modalDetalhes && chamadoSelecionado && (
         <Modal
           titulo="Detalhes do Chamado"
           onClose={() => setModalDetalhes(false)}
         >
           <div className="space-y-3 text-sm">
-            <div className="w-full px-3 py-2 border rounded-lg
-                focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                bg-white text-gray-900 placeholder-gray-400
-                dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:placeholder-slate-500">
+            {/* Dados do chamado */}
+            <div
+              className="w-full px-3 py-2 border rounded-lg
+              bg-white text-gray-900
+              dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
+            >
               <h3 className="font-bold text-base">
                 {chamadoSelecionado.titulo}
               </h3>
-              <p>
-                <strong>Sala:</strong>{" "}
-                {chamadoSelecionado.sala}
-              </p>
-              <p>
-                <strong>Tipo:</strong>{" "}
-                {chamadoSelecionado.tipo}
-              </p>
-              <p>
-                <strong>Prioridade:</strong>{" "}
-                {chamadoSelecionado.prioridade}
-              </p>
-              <p>
-                <strong>Técnico:</strong>{" "}
-                {chamadoSelecionado.tecnico}
-              </p>
-              <p>
-                <strong>Data:</strong>{" "}
-                {chamadoSelecionado.data}
-              </p>
-              <p>
-                <strong>Descrição:</strong>{" "}
-                {chamadoSelecionado.descricao}
-              </p>
+              <p><strong>Sala:</strong> {chamadoSelecionado.sala}</p>
+              <p><strong>Tipo:</strong> {chamadoSelecionado.tipo}</p>
+              <p><strong>Prioridade:</strong> {chamadoSelecionado.prioridade}</p>
+              <p><strong>Técnico:</strong> {chamadoSelecionado.tecnico}</p>
+              <p><strong>Data:</strong> {chamadoSelecionado.data}</p>
+              <p><strong>Descrição:</strong> {chamadoSelecionado.descricao}</p>
 
               {chamadoSelecionado.foto && (
                 <div className="mt-2">
@@ -2027,22 +2022,19 @@ const Chamados = ({ chamados, setChamados, usuario }) => {
               )}
 
               {chamadoSelecionado.resolucao && (
-                <p>
-                  <strong>Resolução:</strong>{" "}
-                  {chamadoSelecionado.resolucao}
+                <p className="mt-2">
+                  <strong>Resolução:</strong> {chamadoSelecionado.resolucao}
                 </p>
               )}
             </div>
 
+            {/* Ações se não estiver concluído */}
             {chamadoSelecionado.status !== "concluido" && (
               <>
                 {chamadoSelecionado.status === "pendente" && (
                   <button
                     onClick={() =>
-                      atualizarStatus(
-                        chamadoSelecionado.id,
-                        "em_andamento"
-                      )
+                      atualizarStatus(chamadoSelecionado.id, "em_andamento")
                     }
                     className="w-full py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700"
                   >
@@ -2050,40 +2042,184 @@ const Chamados = ({ chamados, setChamados, usuario }) => {
                   </button>
                 )}
 
-                {chamadoSelecionado.status ===
-                  "em_andamento" && (
-                  <div>
-                    <label className="block mb-1 font-medium">
-                      Resolução
-                    </label>
-                    <textarea
-                      id="resolucao-input"
-                      className="
-                      w-full px-3 py-2 border rounded-lg
-                      focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                      bg-white text-gray-900 placeholder-gray-400
-                      dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:placeholder-slate-500"
-                      rows={3}
-                      placeholder="Descreva o que foi feito..."
-                    />
-                    <button
-                      onClick={() => {
-                        const resolucao =
-                          document.getElementById(
-                            "resolucao-input"
-                          ).value;
-                        if (resolucao.trim()) {
-                          adicionarResolucao(
-                            chamadoSelecionado.id,
-                            resolucao
+                {chamadoSelecionado.status === "em_andamento" && (
+                  <div className="space-y-3">
+                    {/* Itens de estoque */}
+                    <div>
+                      <p className="block mb-1 font-medium text-sm">
+                        Itens de estoque utilizados (opcional)
+                      </p>
+                      <div className="max-h-40 overflow-y-auto border rounded-lg p-2 space-y-1">
+                        {estoque.length === 0 && (
+                          <p className="text-[10px] text-gray-500">
+                            Nenhum item de estoque cadastrado.
+                          </p>
+                        )}
+
+                        {estoque.map((item) => {
+                          const existente =
+                            itensUso.find((i) => i.item_id === item.id) || {};
+                          return (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-2 text-[10px]"
+                            >
+                              <input
+                                type="number"
+                                min="0"
+                                max={item.quantidade}
+                                value={existente.quantidade || ""}
+                                onChange={(e) => {
+                                  const qtd =
+                                    parseInt(e.target.value, 10) || 0;
+                                  setItensUso((prev) => {
+                                    const semAtual = prev.filter(
+                                      (p) => p.item_id !== item.id
+                                    );
+                                    if (qtd <= 0) return semAtual;
+                                    return [
+                                      ...semAtual,
+                                      {
+                                        item_id: item.id,
+                                        nome: item.nome,
+                                        quantidade: qtd,
+                                      },
+                                    ];
+                                  });
+                                }}
+                                className="
+                                w-14 px-1 py-0.5 border rounded
+                                focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                bg-white text-gray-900 placeholder-gray-400
+                                dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:placeholder-slate-500"
+                                
+                              />
+                              <span className="flex-1">
+                                {item.nome}{" "}
+                                <span className="text-gray-400">
+                                  (Disp.: {item.quantidade})
+                                </span>
+                              </span>
+                            </div>
                           );
-                        } else {
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Resolução */}
+                    <div>
+                      <label className="block mb-1 font-medium">
+                        Resolução
+                      </label>
+                      <textarea
+                        id="resolucao-input"
+                        rows={3}
+                        placeholder="Descreva o que foi feito..."
+                        className="
+                          w-full px-3 py-2 border rounded-lg
+                          focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                          bg-white text-gray-900 placeholder-gray-400
+                          dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:placeholder-slate-500"
+                      />
+                    </div>
+
+                    {/* Concluir */}
+                    <button
+                      onClick={async () => {
+                        const resolucao = document.getElementById(
+                          "resolucao-input"
+                        ).value;
+
+                        if (!resolucao.trim()) {
+                          alert("Por favor, descreva a resolução.");
+                          return;
+                        }
+
+                        const itensValidos = itensUso.filter(
+                          (i) => i.quantidade && i.quantidade > 0
+                        );
+
+                        try {
+                          const chamado = chamados.find(
+                            (c) => c.id === chamadoSelecionado.id
+                          );
+                          if (!chamado) return;
+
+                          const atualizado = await atualizarChamado(
+                            chamadoSelecionado.id,
+                            {
+                              ...chamado,
+                              resolucao,
+                              status: "concluido",
+                              itens_uso: itensValidos,
+                            }
+                          );
+
+                          setChamados((prev) =>
+                            prev.map((c) =>
+                              c.id === chamadoSelecionado.id
+                                ? atualizado
+                                : c
+                            )
+                          );
+
+                          for (const uso of itensValidos) {
+                            const item = estoque.find(
+                              (e) => e.id === uso.item_id
+                            );
+                            if (!item) continue;
+
+                            const novaQtd = Math.max(
+                              0,
+                              item.quantidade - uso.quantidade
+                            );
+
+                            const mov =
+                              await registrarMovimentacaoEstoque({
+                                item_id: item.id,
+                                item: item.nome,
+                                tipo: "saida",
+                                quantidade: uso.quantidade,
+                                data: new Date()
+                                  .toISOString()
+                                  .split("T")[0],
+                                responsavel: usuario.nome,
+                                motivo: `Uso no chamado "${chamado.titulo}"`,
+                              });
+
+                            const itemAtualizado =
+                              await atualizarItemEstoque(item.id, {
+                                ...item,
+                                quantidade: novaQtd,
+                              });
+
+                            setEstoque((prev) =>
+                              prev.map((i) =>
+                                i.id === item.id
+                                  ? itemAtualizado
+                                  : i
+                              )
+                            );
+
+                            setHistoricoEstoque((prev) => [
+                              ...prev,
+                              mov,
+                            ]);
+                          }
+
+                          setItensUso([]);
+                          setModalDetalhes(false);
+                        } catch (error) {
+                          console.error(
+                            "Erro ao concluir chamado com estoque:",
+                            error
+                          );
                           alert(
-                            "Por favor, descreva a resolução."
+                            "Erro ao concluir chamado. Verifique os dados."
                           );
                         }
                       }}
-                      className="w-full mt-2 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                      className="w-full mt-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                     >
                       Concluir Chamado
                     </button>
@@ -2097,6 +2233,7 @@ const Chamados = ({ chamados, setChamados, usuario }) => {
     </div>
   );
 };
+
 
 // ==== Preventivas ====
 
@@ -3503,7 +3640,7 @@ const Configuracoes = ({
   }
 
   try {
-    const criado = await criarUsuario({
+    const novo = await criarUsuario({
       nome: form.nome,
       email: form.email,
       senha: form.senha,
@@ -3511,7 +3648,7 @@ const Configuracoes = ({
       ativo: true,
     });
 
-    setUsuarios((prev) => [...prev, criado]);
+    setUsuarios((prev) => [...prev, novo]);
 
     setForm({
       nome: "",
@@ -3520,10 +3657,11 @@ const Configuracoes = ({
       nivel: "tecnico",
     });
   } catch (error) {
-    console.error("Erro ao criar usuário:", error);
-    alert("Erro ao criar usuário.");
+    alert("Erro ao criar usuário. Verifique se o email já está em uso.");
+    console.error(error);
   }
 };
+
 
 
   const toggleAtivo = async (id) => {
@@ -3532,7 +3670,6 @@ const Configuracoes = ({
 
   try {
     const atualizado = await atualizarUsuario(id, {
-      ...usuario,
       ativo: !usuario.ativo,
     });
 
@@ -3540,10 +3677,11 @@ const Configuracoes = ({
       prev.map((u) => (u.id === id ? atualizado : u))
     );
   } catch (error) {
-    console.error("Erro ao atualizar usuário:", error);
-    alert("Erro ao atualizar usuário.");
+    alert("Erro ao atualizar status do usuário.");
+    console.error(error);
   }
 };
+
 
 
   const handleImportFile = (e) => {
