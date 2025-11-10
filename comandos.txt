@@ -1,3 +1,11 @@
 git add .
 git commit -m "Ajuste X, melhoria Y"
 git push
+
+
+
+"w-full pl-10 pr-4 py-3
+ border rounded-lg
+ focus:ring-2 focus:ring-blue-500 focus:border-transparent
+ bg-white text-gray-900 placeholder-gray-400
+ dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:placeholder-slate-500"

@@ -2642,6 +2642,8 @@ const Preventivas = ({
 
 // ==== Relatórios ====
 
+// ==== Relatórios ====
+
 const Relatorios = ({
   chamados,
   estoque,
@@ -2660,9 +2662,7 @@ const Relatorios = ({
     return true;
   };
 
-  const chamadosFiltrados = chamados.filter((c) =>
-    filtrarPorPeriodo(c.data)
-  );
+  const chamadosFiltrados = chamados.filter((c) => filtrarPorPeriodo(c.data));
   const historicoFiltrado = historicoEstoque.filter((h) =>
     filtrarPorPeriodo(h.data)
   );
@@ -2670,6 +2670,7 @@ const Relatorios = ({
     filtrarPorPeriodo(p.data)
   );
 
+  // Métricas de chamados
   const totalChamados = chamadosFiltrados.length;
   const chamadosConcluidos = chamadosFiltrados.filter(
     (c) => c.status === "concluido"
@@ -2680,7 +2681,11 @@ const Relatorios = ({
   const chamadosAndamento = chamadosFiltrados.filter(
     (c) => c.status === "em_andamento"
   ).length;
+  const taxaConclusao = totalChamados
+    ? ((chamadosConcluidos / totalChamados) * 100).toFixed(1)
+    : "0.0";
 
+  // Estoque
   const entradasEstoque = historicoFiltrado
     .filter((h) => h.tipo === "entrada")
     .reduce((sum, h) => sum + h.quantidade, 0);
@@ -2688,6 +2693,11 @@ const Relatorios = ({
     .filter((h) => h.tipo === "saida")
     .reduce((sum, h) => sum + h.quantidade, 0);
 
+  const estoqueAbaixoMinimo = estoque.filter(
+    (e) => e.quantidade <= e.minimo
+  );
+
+  // Preventivas
   const preventivasConcluidas = preventivasFiltradas.filter(
     (p) => p.status === "concluido"
   ).length;
@@ -2695,20 +2705,27 @@ const Relatorios = ({
     (p) => p.status === "pendente"
   ).length;
 
+  // Chamados por tipo
   const problemasFrequentes = {};
   chamadosFiltrados.forEach((c) => {
+    if (!c.tipo) return;
     problemasFrequentes[c.tipo] =
       (problemasFrequentes[c.tipo] || 0) + 1;
   });
 
-  const estoqueAbaixoMinimo = estoque.filter(
-    (e) => e.quantidade <= e.minimo
+  // Barra visual (usada na tela e no estilo "Power BI")
+  const Barra = ({ valor }) => (
+    <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+      <div
+        className="h-2 bg-blue-500 rounded-full"
+        style={{ width: `${valor}%` }}
+      />
+    </div>
   );
 
+  // Impressão / PDF (abre em outra aba mantendo o site normal)
   const gerarRelatorioPDF = () => {
-    const relatorio = document.getElementById(
-      "relatorio-conteudo"
-    );
+    const relatorio = document.getElementById("relatorio-conteudo");
     if (!relatorio) return;
 
     const printWindow = window.open("", "_blank");
@@ -2718,13 +2735,57 @@ const Relatorios = ({
         <head>
           <title>Relatório de Gestão TI</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { color: #1e40af; border-bottom: 2px solid #1e40af; padding-bottom: 10px; }
-            h2 { color: #374151; margin-top: 20px; }
-            table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 12px; }
-            th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-            th { background-color: #f3f4f6; }
-            .secao { margin: 20px 0; page-break-inside: avoid; }
+            * { box-sizing: border-box; }
+            body {
+              font-family: -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif;
+              padding: 24px;
+              background: #f3f4f6;
+              color: #111827;
+            }
+            h1,h2,h3 { margin: 0 0 6px; }
+            h1 { font-size: 18px; }
+            h2 { font-size: 14px; }
+            h3 { font-size: 12px; }
+            p  { font-size: 10px; margin: 2px 0; color: #4b5563; }
+            .grid { display: grid; gap: 8px; }
+            .grid-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+            .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+            .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .card {
+              background: #ffffff;
+              border-radius: 10px;
+              padding: 10px 12px;
+              margin-bottom: 10px;
+              box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+            }
+            .pill {
+              display:inline-block;
+              padding:2px 6px;
+              border-radius:999px;
+              font-size:8px;
+              font-weight:500;
+            }
+            .pill-ok { background:#dcfce7; color:#166534; }
+            .pill-warn { background:#fef9c3; color:#854d0e; }
+            .pill-err { background:#fee2e2; color:#991b1b; }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 4px;
+              font-size: 8px;
+            }
+            th, td {
+              border: 1px solid #e5e7eb;
+              padding: 4px 5px;
+              text-align: left;
+            }
+            th {
+              background-color: #f9fafb;
+              font-weight: 600;
+              color: #374151;
+            }
+            tr:nth-child(even) td { background-color: #f9fafb; }
           </style>
         </head>
         <body>
@@ -2734,186 +2795,206 @@ const Relatorios = ({
     `);
 
     printWindow.document.close();
+    printWindow.focus();
     printWindow.print();
   };
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-        <h2 className="text-2xl font-bold">Relatórios</h2>
+    <div className="space-y-4">
+      {/* Cabeçalho / ações na TELA */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+        <div>
+          <h2 className="text-2xl font-bold">Relatórios &amp; Indicadores</h2>
+          <p className="text-xs text-gray-500">
+            Visão estilo dashboard para diretoria + exportação pronta para PDF.
+          </p>
+        </div>
 
         <div className="flex gap-2">
           <button
             onClick={onBackup}
-            className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs"
+            className="flex items-center gap-1.5 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-[10px]"
           >
             <Download className="w-4 h-4" />
             Backup (JSON)
           </button>
-
           <button
             onClick={gerarRelatorioPDF}
-            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-xs"
+            className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-[10px]"
           >
             <Download className="w-4 h-4" />
-            Gerar PDF
+            Exportar PDF
           </button>
         </div>
       </div>
 
-      {/* Filtro */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 mb-4 text-xs">
-        <h3 className="font-bold mb-3">Filtrar Período</h3>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+      {/* Filtro de período na TELA */}
+      <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 text-xs">
+        <h3 className="font-semibold mb-2">Período do relatório</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end">
           <div>
-            <label className="block mb-1">
+            <span className="block mb-1 text-[10px] text-gray-500">
               Data Início
-            </label>
+            </span>
             <input
               type="date"
               value={dataInicio}
-              onChange={(e) =>
-                setDataInicio(e.target.value)
-              }
-              className="
-                w-full px-3 py-2 border rounded-lg
-                focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                bg-white text-gray-900 placeholder-gray-400
-                dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:placeholder-slate-500"
+              onChange={(e) => setDataInicio(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-[11px]
+              bg-white text-gray-900 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
             />
           </div>
-
           <div>
-            <label className="block mb-1">
+            <span className="block mb-1 text-[10px] text-gray-500">
               Data Fim
-            </label>
+            </span>
             <input
               type="date"
               value={dataFim}
-              onChange={(e) =>
-                setDataFim(e.target.value)
-              }
-              className="
-                w-full px-3 py-2 border rounded-lg
-                focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                bg-white text-gray-900 placeholder-gray-400
-                dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:placeholder-slate-500"
+              onChange={(e) => setDataFim(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg text-[11px]
+              bg-white text-gray-900 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700"
             />
+          </div>
+          <div className="sm:col-span-2 text-[10px] text-gray-500">
+            Período atual:{" "}
+            <span className="font-semibold text-gray-700 dark:text-slate-200">
+              {dataInicio || "Início"} até {dataFim || "Hoje"}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Conteúdo do relatório */}
-      <div id="relatorio-conteudo" className="text-xs">
-        {/* Resumo */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 mb-4">
-          <h1 className="text-xl font-bold mb-1">
-            Relatório de Gestão TI
+      {/* TUDO abaixo entra tanto na tela quanto no PDF */}
+      <div id="relatorio-conteudo" className="space-y-4 text-xs">
+        {/* RESUMO EXECUTIVO (cards estilo Power BI) */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 card">
+          <h1 className="text-lg font-bold mb-1">
+            Relatório de Gestão de TI
           </h1>
-          <p className="text-gray-600 mb-3">
-            Período: {dataInicio || "Início"} até{" "}
-            {dataFim || "Hoje"}
+          <p className="text-[10px] text-gray-500 mb-3">
+            Indicadores consolidados do período selecionado.
           </p>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <p>Total de Chamados</p>
-              <p className="text-2xl font-bold text-blue-600">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="p-3 rounded-lg bg-blue-50">
+              <p className="text-[9px] text-blue-700">Chamados (Total)</p>
+              <p className="text-xl font-bold text-blue-900">
                 {totalChamados}
               </p>
             </div>
-            <div className="bg-green-50 p-3 rounded-lg">
-              <p>Concluídos</p>
-              <p className="text-2xl font-bold text-green-600">
+            <div className="p-3 rounded-lg bg-green-50">
+              <p className="text-[9px] text-green-700">Concluídos</p>
+              <p className="text-xl font-bold text-green-800">
                 {chamadosConcluidos}
               </p>
             </div>
-            <div className="bg-yellow-50 p-3 rounded-lg">
-              <p>Em Andamento</p>
-              <p className="text-2xl font-bold text-yellow-600">
+            <div className="p-3 rounded-lg bg-yellow-50">
+              <p className="text-[9px] text-yellow-700">Em andamento</p>
+              <p className="text-xl font-bold text-yellow-800">
                 {chamadosAndamento}
               </p>
             </div>
-            <div className="bg-red-50 p-3 rounded-lg">
-              <p>Pendentes</p>
-              <p className="text-2xl font-bold text-red-600">
+            <div className="p-3 rounded-lg bg-red-50">
+              <p className="text-[9px] text-red-700">Pendentes</p>
+              <p className="text-xl font-bold text-red-800">
                 {chamadosPendentes}
               </p>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50">
+              <p className="text-[9px] text-slate-600">Taxa de conclusão</p>
+              <p className="text-xl font-bold text-slate-900">
+                {taxaConclusao}%
+              </p>
+              <Barra valor={parseFloat(taxaConclusao)} />
             </div>
           </div>
         </div>
 
-        {/* Chamados por Tipo */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 mb-4">
-          <h2 className="text-lg font-bold mb-2">
-            Chamados por Tipo
+        {/* DISTRIBUIÇÃO DE CHAMADOS POR TIPO */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 card">
+          <h2 className="text-sm font-semibold mb-2">
+            Distribuição de Chamados por Tipo
           </h2>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Tipo</th>
-                <th>Quantidade</th>
-                <th>Percentual</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(problemasFrequentes).map(
-                ([tipo, qtd]) => (
-                  <tr key={tipo}>
-                    <td>{tipo}</td>
-                    <td>{qtd}</td>
-                    <td>
-                      {totalChamados
-                        ? (
-                            (qtd /
-                              totalChamados) *
-                            100
-                          ).toFixed(1)
-                        : 0}{" "}
-                      %
-                    </td>
-                  </tr>
-                )
-              )}
-            </tbody>
-          </table>
+          {Object.keys(problemasFrequentes).length === 0 ? (
+            <p className="text-[10px] text-gray-500">
+              Nenhum chamado no período selecionado.
+            </p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Quantidade</th>
+                  <th>Percentual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(problemasFrequentes).map(([tipo, qtd]) => {
+                  const pct = totalChamados
+                    ? ((qtd / totalChamados) * 100).toFixed(1)
+                    : 0;
+                  return (
+                    <tr key={tipo}>
+                      <td className="capitalize">{tipo}</td>
+                      <td>{qtd}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <Barra valor={pct} />
+                          </div>
+                          <span>{pct}%</span>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {/* Movimentação de Estoque */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 mb-4">
-          <h2 className="text-lg font-bold mb-2">
+        {/* MOVIMENTAÇÃO / ITENS CRÍTICOS */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 card">
+          <h2 className="text-sm font-semibold mb-2">
             Movimentação de Estoque
           </h2>
 
-          <div className="grid grid-cols-2 gap-3 mb-2">
-            <div className="bg-green-50 p-3 rounded-lg">
-              <p>Entradas</p>
-              <p className="text-2xl font-bold text-green-600">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            <div className="p-3 rounded-lg bg-green-50">
+              <p className="text-[9px] text-green-700">Total de Entradas</p>
+              <p className="text-xl font-bold text-green-800">
                 {entradasEstoque}
               </p>
             </div>
-            <div className="bg-red-50 p-3 rounded-lg">
-              <p>Saídas</p>
-              <p className="text-2xl font-bold text-red-600">
+            <div className="p-3 rounded-lg bg-red-50">
+              <p className="text-[9px] text-red-700">Total de Saídas</p>
+              <p className="text-xl font-bold text-red-800">
                 {saidasEstoque}
+              </p>
+            </div>
+            <div className="p-3 rounded-lg bg-slate-50 col-span-2">
+              <p className="text-[9px] text-slate-600">
+                Itens abaixo do mínimo
+              </p>
+              <p className="text-xl font-bold text-slate-900">
+                {estoqueAbaixoMinimo.length}
               </p>
             </div>
           </div>
 
           {estoqueAbaixoMinimo.length > 0 && (
             <>
-              <h3 className="font-bold mb-1">
-                Itens Abaixo do Estoque Mínimo
+              <h3 className="text-[10px] font-semibold mb-1">
+                Itens Críticos
               </h3>
-
               <table>
                 <thead>
                   <tr>
                     <th>Item</th>
-                    <th>Quantidade</th>
+                    <th>Qtd</th>
                     <th>Mínimo</th>
+                    <th>Local</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2924,6 +3005,7 @@ const Relatorios = ({
                         {item.quantidade}
                       </td>
                       <td>{item.minimo}</td>
+                      <td>{item.localizacao || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2932,81 +3014,135 @@ const Relatorios = ({
           )}
         </div>
 
-        {/* Preventivas */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 mb-4">
-          <h2 className="text-lg font-bold mb-2">
+        {/* PREVENTIVAS */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 card">
+          <h2 className="text-sm font-semibold mb-2">
             Manutenções Preventivas
           </h2>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-green-50 p-3 rounded-lg">
-              <p>Concluídas</p>
-              <p className="text-2xl font-bold text-green-600">
+          <div className="grid grid-cols-2 gap-3 mb-2">
+            <div className="p-3 rounded-lg bg-green-50">
+              <p className="text-[9px] text-green-700">Concluídas</p>
+              <p className="text-xl font-bold text-green-800">
                 {preventivasConcluidas}
               </p>
             </div>
-            <div className="bg-yellow-50 p-3 rounded-lg">
-              <p>Pendentes</p>
-              <p className="text-2xl font-bold text-yellow-600">
+            <div className="p-3 rounded-lg bg-yellow-50">
+              <p className="text-[9px] text-yellow-700">Pendentes</p>
+              <p className="text-xl font-bold text-yellow-800">
                 {preventivasPendentes}
               </p>
             </div>
           </div>
+
+          {preventivasFiltradas.length > 0 && (
+            <table>
+              <thead>
+                <tr>
+                  <th>Sala</th>
+                  <th>Data</th>
+                  <th>Técnico</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {preventivasFiltradas.slice(0, 60).map((p) => (
+                  <tr key={p.id}>
+                    <td>{p.sala}</td>
+                    <td>{p.data}</td>
+                    <td>{p.tecnico}</td>
+                    <td>
+                      <span
+                        className={
+                          "pill " +
+                          (p.status === "concluido"
+                            ? "pill-ok"
+                            : "pill-warn")
+                        }
+                      >
+                        {p.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {/* Detalhamento de Chamados */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 mb-4">
-          <h2 className="text-lg font-bold mb-2">
-            Detalhamento de Chamados
+        {/* DETALHAMENTO CHAMADOS */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 card">
+          <h2 className="text-sm font-semibold mb-2">
+            Detalhamento de Chamados (top 50)
           </h2>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Título</th>
-                <th>Sala</th>
-                <th>Técnico</th>
-                <th>Status</th>
-                <th>Data</th>
-              </tr>
-            </thead>
-            <tbody>
-              {chamadosFiltrados
-                .slice(0, 50)
-                .map((c) => (
+          {chamadosFiltrados.length === 0 ? (
+            <p className="text-[10px] text-gray-500">
+              Nenhum chamado no período.
+            </p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Título</th>
+                  <th>Sala</th>
+                  <th>Tipo</th>
+                  <th>Técnico</th>
+                  <th>Status</th>
+                  <th>Data</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chamadosFiltrados.slice(0, 50).map((c) => (
                   <tr key={c.id}>
                     <td>{c.titulo}</td>
                     <td>{c.sala}</td>
+                    <td>{c.tipo}</td>
                     <td>{c.tecnico}</td>
-                    <td>{c.status}</td>
+                    <td>
+                      <span
+                        className={
+                          "pill " +
+                          (c.status === "concluido"
+                            ? "pill-ok"
+                            : c.status === "em_andamento"
+                            ? "pill-warn"
+                            : "pill-err")
+                        }
+                      >
+                        {c.status}
+                      </span>
+                    </td>
                     <td>{c.data}</td>
                   </tr>
                 ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          )}
         </div>
 
-        {/* Histórico de Movimentações */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4">
-          <h2 className="text-lg font-bold mb-2">
-            Histórico de Movimentações
+        {/* HISTÓRICO ESTOQUE */}
+        <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm p-4 card">
+          <h2 className="text-sm font-semibold mb-2">
+            Histórico de Movimentações de Estoque (top 100)
           </h2>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Item</th>
-                <th>Tipo</th>
-                <th>Qtd</th>
-                <th>Responsável</th>
-                <th>Motivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historicoFiltrado
-                .slice(0, 100)
-                .map((mov) => (
+          {historicoFiltrado.length === 0 ? (
+            <p className="text-[10px] text-gray-500">
+              Nenhuma movimentação registrada no período.
+            </p>
+          ) : (
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Item</th>
+                  <th>Tipo</th>
+                  <th>Qtd</th>
+                  <th>Responsável</th>
+                  <th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historicoFiltrado.slice(0, 100).map((mov) => (
                   <tr key={mov.id}>
                     <td>{mov.data}</td>
                     <td>{mov.item}</td>
@@ -3016,13 +3152,16 @@ const Relatorios = ({
                     <td>{mov.motivo}</td>
                   </tr>
                 ))}
-            </tbody>
-          </table>
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+
 
 // ==== Equipamentos + QR Code ====
 
